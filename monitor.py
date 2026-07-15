@@ -2,9 +2,12 @@ import os
 import json
 import hashlib
 import requests
+import re
 
 from datetime import datetime
+
 from playwright.sync_api import sync_playwright
+
 
 
 SERVER_KEY = os.getenv("SERVER_KEY")
@@ -13,10 +16,16 @@ CACHE_FILE = "cache.json"
 
 
 
-def send_wechat(title, msg):
+# =====================
+# Server酱微信通知
+# =====================
+
+def send_wechat(title, content):
 
     if not SERVER_KEY:
-        print("没有SERVER_KEY")
+
+        print("SERVER_KEY不存在")
+
         return
 
 
@@ -25,27 +34,36 @@ def send_wechat(title, msg):
         url = f"https://sctapi.ftqq.com/{SERVER_KEY}.send"
 
 
-        requests.post(
+        r = requests.post(
 
             url,
 
             data={
+
                 "title": title,
-                "desp": msg
+
+                "desp": content
+
             },
 
             timeout=10
+
         )
 
 
-        print("微信通知成功")
+        print(r.text)
 
 
     except Exception as e:
 
-        print("微信通知失败:", e)
+        print("微信发送失败:", e)
 
 
+
+
+# =====================
+# 缓存
+# =====================
 
 def load_cache():
 
@@ -55,9 +73,11 @@ def load_cache():
 
             return json.load(f)
 
+
     except:
 
         return []
+
 
 
 
@@ -69,18 +89,17 @@ def save_cache(data):
 
 
 
-# =========================
-# 抓取 Alpha123
-# =========================
+
+# =====================
+# Alpha123抓取
+# =====================
 
 def get_alpha123():
-
 
     text=""
 
 
     try:
-
 
         with sync_playwright() as p:
 
@@ -107,8 +126,6 @@ def get_alpha123():
             )
 
 
-            # 等待动态内容加载
-
             page.wait_for_timeout(5000)
 
 
@@ -123,14 +140,8 @@ def get_alpha123():
 
     except Exception as e:
 
+        print("Alpha123失败:",e)
 
-        print(
-
-            "Alpha123抓取失败:",
-
-            e
-
-        )
 
 
     return text
@@ -138,24 +149,18 @@ def get_alpha123():
 
 
 
-# =========================
-# 抓取 Binance公告
-# =========================
 
+# =====================
+# Binance公告
+# =====================
 
 def get_binance():
 
-
     try:
-
-
-        url="https://www.binance.com/zh-CN/support/announcement"
-
-
 
         r=requests.get(
 
-            url,
+            "https://www.binance.com/zh-CN/support/announcement",
 
             headers={
 
@@ -173,74 +178,166 @@ def get_binance():
         return r.text
 
 
-
-    except Exception as e:
-
-
-        print(
-
-            "Binance抓取失败:",
-
-            e
-
-        )
-
+    except:
 
         return ""
 
 
 
 
-# =========================
-# 判断关键词
-# =========================
+
+# =====================
+# 提取积分
+# =====================
+
+def get_points(text):
 
 
-def analyze(text):
+    patterns=[
 
+        r"(\d+)\s*Alpha Points",
 
-    keywords=[
+        r"(\d+)\s*Points",
 
-
-        "Alpha",
-
-        "空投",
-
-        "Airdrop",
-
-        "Points",
-
-        "积分",
-
-        "领取"
-
+        r"(\d+)\s*积分"
 
     ]
 
 
-    result=[]
+    for p in patterns:
+
+
+        m=re.search(
+
+            p,
+
+            text,
+
+            re.I
+
+        )
+
+
+        if m:
+
+            return m.group(1)
 
 
 
-    for k in keywords:
-
-
-        if k.lower() in text.lower():
-
-
-            result.append(k)
-
-
-
-    return result
+    return "未知"
 
 
 
 
-# =========================
+
+# =====================
+# 提取时间
+# =====================
+
+def get_time(text):
+
+
+    patterns=[
+
+        r"\d{1,2}:\d{2}",
+
+        r"\d{4}[-/]\d{1,2}[-/]\d{1,2}"
+
+    ]
+
+
+    for p in patterns:
+
+
+        m=re.search(
+
+            p,
+
+            text
+
+        )
+
+
+        if m:
+
+            return m.group(0)
+
+
+
+    return "未知"
+
+
+
+
+
+# =====================
+# 判断价值
+# =====================
+
+def evaluate(text):
+
+
+    score=5
+
+
+    reasons=[]
+
+
+
+    words=[
+
+        "AI",
+
+        "DeFi",
+
+        "RWA",
+
+        "Layer",
+
+        "BTC",
+
+        "ETH"
+
+    ]
+
+
+
+    for w in words:
+
+
+        if w.lower() in text.lower():
+
+            score+=1
+
+            reasons.append(w)
+
+
+
+    if score>=8:
+
+        result="🔥值得重点关注"
+
+
+    elif score>=6:
+
+        result="✅可以参与"
+
+
+    else:
+
+        result="⚠️看积分决定"
+
+
+
+    return score,result
+
+
+
+
+
+# =====================
 # 主程序
-# =========================
-
+# =====================
 
 def main():
 
@@ -250,7 +347,6 @@ def main():
 
 
     sources={
-
 
         "Alpha123":
 
@@ -262,13 +358,29 @@ def main():
 
         get_binance()
 
-
-
     }
 
 
 
-    for name,text in sources.items():
+    keywords=[
+
+        "Alpha",
+
+        "Airdrop",
+
+        "空投",
+
+        "Points",
+
+        "积分",
+
+        "领取"
+
+    ]
+
+
+
+    for source,text in sources.items():
 
 
         if not text:
@@ -277,70 +389,105 @@ def main():
 
 
 
-        keys=analyze(text)
+        count=sum(
+
+            1 for k in keywords
+
+            if k.lower() in text.lower()
+
+        )
 
 
 
-        if len(keys)>=3:
+        if count < 3:
+
+            continue
 
 
 
-            fingerprint=hashlib.md5(
+        fingerprint=hashlib.md5(
 
-                text.encode("utf-8")
+            text.encode("utf-8")
 
-            ).hexdigest()
-
-
-
-            if fingerprint not in cache:
+        ).hexdigest()
 
 
 
-                msg=f"""
+        if fingerprint in cache:
+
+            continue
+
+
+
+        points=get_points(text)
+
+        time=get_time(text)
+
+        score,result=evaluate(text)
+
+
+
+        message=f"""
 
 🚨 Binance Alpha 空投提醒
 
 
 来源：
-{name}
+
+{source}
 
 
-发现关键词：
-{','.join(keys)}
+⏰ 时间：
+
+{time}
+
+
+⭐ Alpha Points：
+
+{points}
+
+
+🔥评分：
+
+{score}/10
+
+
+判断：
+
+{result}
+
+
+💰预计价值：
+
+仅供参考
 
 
 检测时间：
+
 {datetime.now()}
 
 
-请打开 Binance Alpha 查看
-
-
-建议：
-关注领取时间和 Alpha Points
+请及时打开 Binance Alpha 查看
 
 
 """
 
 
 
-                send_wechat(
+        send_wechat(
 
-                    "🚨 Binance Alpha提醒",
+            "🚨 Binance Alpha提醒",
 
-                    msg
+            message
 
-                )
+        )
 
 
-
-                cache.append(fingerprint)
+        cache.append(fingerprint)
 
 
 
     save_cache(cache)
-
 
 
 
