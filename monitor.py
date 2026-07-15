@@ -6,37 +6,38 @@ import hashlib
 from datetime import datetime
 
 
+SERVER_KEY = os.getenv("SERVER_KEY")
 
-SERVER_KEY=os.getenv("SERVER_KEY")
-
-
-CACHE_FILE="cache.json"
+CACHE_FILE = "cache.json"
 
 
-
-def send_wechat(title,msg):
+def send_wechat(title, msg):
 
     if not SERVER_KEY:
-
+        print("没有找到 SERVER_KEY")
         return
 
 
-    url=f"https://sctapi.ftqq.com/{SERVER_KEY}.send"
+    url = f"https://sctapi.ftqq.com/{SERVER_KEY}.send"
 
 
-    requests.post(
+    try:
 
-        url,
+        r = requests.post(
+            url,
+            data={
+                "title": title,
+                "desp": msg
+            },
+            timeout=10
+        )
 
-        data={
+        print(r.text)
 
-            "title":title,
 
-            "desp":msg
+    except Exception as e:
 
-        }
-
-    )
+        print("微信发送失败:", e)
 
 
 
@@ -44,7 +45,7 @@ def load_cache():
 
     try:
 
-        with open(CACHE_FILE) as f:
+        with open(CACHE_FILE, "r") as f:
 
             return json.load(f)
 
@@ -56,219 +57,118 @@ def load_cache():
 
 def save_cache(data):
 
-    with open(CACHE_FILE,"w") as f:
+    with open(CACHE_FILE, "w") as f:
 
-        json.dump(data,f)
+        json.dump(data, f)
 
 
 
 def get_alpha123():
 
-    url="https://alpha123.uk/zh/"
+    url = "https://alpha123.uk/zh/"
 
 
-    headers={
+    headers = {
 
         "User-Agent":
-
         "Mozilla/5.0"
 
     }
 
 
-    r=requests.get(
-
+    r = requests.get(
         url,
-
         headers=headers,
-
         timeout=20
-
     )
 
 
-    soup=BeautifulSoup(
-
+    soup = BeautifulSoup(
         r.text,
-
         "html.parser"
-
     )
 
 
-    text=soup.get_text(
-
-        "\n"
-
-    )
-
-
-    return text[:5000]
-
+    return soup.get_text("\n")
 
 
 
 def get_binance():
 
-    url="https://www.binance.com/zh-CN/support/announcement"
+    url = "https://www.binance.com/zh-CN/support/announcement"
 
 
-    headers={
+    headers = {
 
         "User-Agent":
-
         "Mozilla/5.0"
 
     }
 
 
-    r=requests.get(
-
+    r = requests.get(
         url,
-
         headers=headers,
-
         timeout=20
-
     )
 
 
-    return r.text[:5000]
-
+    return r.text
 
 
 
 def analyze(text):
 
-
-    keywords=[
+    keywords = [
 
         "Alpha",
-
         "空投",
-
         "Airdrop",
-
         "积分",
-
         "Points",
-
         "领取"
 
     ]
 
 
-    result=[]
+    result = []
 
 
     for k in keywords:
-
 
         if k in text:
 
             result.append(k)
 
 
-
     return result
 
 
 
+# ==========================
+# 测试区域
+# ==========================
 
 def main():
+
+
+    # 测试微信通知
+    # 测试成功后删除这几行
+
     send_wechat(
-    "Binance Alpha测试",
-    "微信通知链路正常"
-)
-
-return
-
-    old=load_cache()
+        "Binance Alpha测试",
+        "GitHub + Server酱 微信通知测试成功"
+    )
 
 
-    sources={
-
-
-        "Alpha123":
-
-        get_alpha123(),
+    return
 
 
 
-        "Binance官方":
+# ==========================
+# 正式运行入口
+# ==========================
 
-        get_binance()
-
-    }
-
-
-
-    for name,text in sources.items():
-
-
-        keys=analyze(text)
-
-
-
-        if len(keys)>=2:
-
-
-            fingerprint=hashlib.md5(
-
-                text.encode()
-
-            ).hexdigest()
-
-
-
-            if fingerprint not in old:
-
-
-                msg=f"""
-
-🚨 Binance Alpha空投提醒
-
-
-来源：
-{name}
-
-
-发现关键词：
-{','.join(keys)}
-
-
-时间：
-{datetime.now()}
-
-
-请打开 Binance Alpha 查看
-
-
-评分：
-🔥建议关注
-
-
-"""
-
-
-                send_wechat(
-
-                    "🚨 Binance Alpha提醒",
-
-                    msg
-
-                )
-
-
-                old.append(fingerprint)
-
-
-
-    save_cache(old)
-
-
-
-
-if __name__=="__main__":
+if __name__ == "__main__":
 
     main()
