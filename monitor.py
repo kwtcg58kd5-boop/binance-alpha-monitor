@@ -1,9 +1,3 @@
-send_wechat(
-    "Binance Alpha测试",
-    "微信通知链路正常"
-)
-
-exit()
 import requests
 from bs4 import BeautifulSoup
 import os
@@ -182,7 +176,12 @@ def analyze(text):
 
 
 def main():
+    send_wechat(
+    "Binance Alpha测试",
+    "微信通知链路正常"
+)
 
+return
 
     old=load_cache()
 
