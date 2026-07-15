@@ -23,38 +23,44 @@ jobs:
     steps:
 
 
-    - name: Checkout
+      - name: Checkout
 
-      uses: actions/checkout@v4
-
-
-
-    - name: Setup Python
-
-      uses: actions/setup-python@v5
-
-      with:
-
-        python-version: "3.11"
+        uses: actions/checkout@v4
 
 
 
-    - name: Install packages
+      - name: Setup Python
 
-      run:
+        uses: actions/setup-python@v5
 
-        |
-        pip install playwright requests
-        playwright install chromium
+        with:
+
+          python-version: "3.11"
 
 
 
-    - name: Run monitor
+      - name: Install dependency
 
-      env:
+        run: |
 
-        SERVER_KEY: ${{ secrets.SERVER_KEY }}
+          pip install requests beautifulsoup4 playwright
 
-      run:
 
-        python monitor.py
+
+      - name: Install browser
+
+        run: |
+
+          playwright install chromium
+
+
+
+      - name: Run monitor
+
+        env:
+
+          SERVER_KEY: ${{ secrets.SERVER_KEY }}
+
+        run: |
+
+          python monitor.py
