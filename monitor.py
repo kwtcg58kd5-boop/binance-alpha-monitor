@@ -4,43 +4,46 @@ import hashlib
 import requests
 
 from datetime import datetime
-
 from playwright.sync_api import sync_playwright
 
 
-
 SERVER_KEY = os.getenv("SERVER_KEY")
-
 
 CACHE_FILE = "cache.json"
 
 
 
-def send_wechat(title,msg):
+def send_wechat(title, msg):
 
     if not SERVER_KEY:
-
+        print("没有SERVER_KEY")
         return
 
 
-    url = f"https://sctapi.ftqq.com/{SERVER_KEY}.send"
+    try:
+
+        url = f"https://sctapi.ftqq.com/{SERVER_KEY}.send"
 
 
-    requests.post(
+        requests.post(
 
-        url,
+            url,
 
-        data={
+            data={
+                "title": title,
+                "desp": msg
+            },
 
-            "title":title,
+            timeout=10
+        )
 
-            "desp":msg
 
-        },
+        print("微信通知成功")
 
-        timeout=10
 
-    )
+    except Exception as e:
+
+        print("微信通知失败:", e)
 
 
 
@@ -48,7 +51,7 @@ def load_cache():
 
     try:
 
-        with open(CACHE_FILE) as f:
+        with open(CACHE_FILE,"r") as f:
 
             return json.load(f)
 
@@ -66,41 +69,68 @@ def save_cache(data):
 
 
 
+# =========================
+# 抓取 Alpha123
+# =========================
+
 def get_alpha123():
 
 
+    text=""
 
-    with sync_playwright() as p:
+
+    try:
 
 
-        browser=p.chromium.launch(
+        with sync_playwright() as p:
 
-            headless=True
+
+            browser=p.chromium.launch(
+
+                headless=True
+
+            )
+
+
+            page=browser.new_page()
+
+
+
+            page.goto(
+
+                "https://alpha123.uk/zh/",
+
+                wait_until="domcontentloaded",
+
+                timeout=30000
+
+            )
+
+
+            # 等待动态内容加载
+
+            page.wait_for_timeout(5000)
+
+
+
+            text=page.inner_text("body")
+
+
+
+            browser.close()
+
+
+
+    except Exception as e:
+
+
+        print(
+
+            "Alpha123抓取失败:",
+
+            e
 
         )
-
-
-        page=browser.new_page()
-
-
-
-        page.goto(
-
-            "https://alpha123.uk/zh/",
-
-            wait_until="networkidle",
-
-            timeout=60000
-
-        )
-
-
-        text=page.inner_text("body")
-
-
-
-        browser.close()
-
 
 
     return text
@@ -108,39 +138,69 @@ def get_alpha123():
 
 
 
+# =========================
+# 抓取 Binance公告
+# =========================
+
+
 def get_binance():
 
 
-    url="https://www.binance.com/zh-CN/support/announcement"
+    try:
+
+
+        url="https://www.binance.com/zh-CN/support/announcement"
 
 
 
-    r=requests.get(
+        r=requests.get(
 
-        url,
+            url,
 
-        headers={
+            headers={
 
-            "User-Agent":
+                "User-Agent":
 
-            "Mozilla/5.0"
+                "Mozilla/5.0"
 
-        },
+            },
 
-        timeout=20
+            timeout=20
 
-    )
-
-
-    return r.text
+        )
 
 
+        return r.text
+
+
+
+    except Exception as e:
+
+
+        print(
+
+            "Binance抓取失败:",
+
+            e
+
+        )
+
+
+        return ""
+
+
+
+
+# =========================
+# 判断关键词
+# =========================
 
 
 def analyze(text):
 
 
     keywords=[
+
 
         "Alpha",
 
@@ -154,16 +214,19 @@ def analyze(text):
 
         "领取"
 
+
     ]
 
 
     result=[]
 
 
+
     for k in keywords:
 
 
-        if k in text:
+        if k.lower() in text.lower():
+
 
             result.append(k)
 
@@ -174,8 +237,12 @@ def analyze(text):
 
 
 
-def main():
+# =========================
+# 主程序
+# =========================
 
+
+def main():
 
 
     cache=load_cache()
@@ -190,9 +257,11 @@ def main():
         get_alpha123(),
 
 
+
         "Binance官方":
 
         get_binance()
+
 
 
     }
@@ -200,6 +269,11 @@ def main():
 
 
     for name,text in sources.items():
+
+
+        if not text:
+
+            continue
 
 
 
@@ -213,7 +287,7 @@ def main():
 
             fingerprint=hashlib.md5(
 
-                text.encode()
+                text.encode("utf-8")
 
             ).hexdigest()
 
@@ -229,29 +303,26 @@ def main():
 
 
 来源：
-
 {name}
 
 
-发现：
-
+发现关键词：
 {','.join(keys)}
 
 
 检测时间：
-
 {datetime.now()}
 
 
 请打开 Binance Alpha 查看
 
 
-🔥建议：
-
-关注领取时间和 Alpha Points 要求
+建议：
+关注领取时间和 Alpha Points
 
 
 """
+
 
 
                 send_wechat(
@@ -269,6 +340,7 @@ def main():
 
 
     save_cache(cache)
+
 
 
 
