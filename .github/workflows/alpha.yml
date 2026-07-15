@@ -5,7 +5,7 @@ on:
 
   schedule:
 
-    - cron: "*/5 * * * *"
+    - cron: "*/3 * * * *"
 
 
   workflow_dispatch:
@@ -14,12 +14,10 @@ on:
 
 jobs:
 
-
   monitor:
 
 
     runs-on: ubuntu-latest
-
 
 
     steps:
@@ -41,15 +39,17 @@ jobs:
 
 
 
-    - name: Install
+    - name: Install packages
 
       run:
 
-        pip install requests beautifulsoup4
+        |
+        pip install playwright requests
+        playwright install chromium
 
 
 
-    - name: Run
+    - name: Run monitor
 
       env:
 
